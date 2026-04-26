@@ -1,0 +1,1833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TI-30XS MultiView</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',Arial,Helvetica,sans-serif}
+body{display:flex;justify-content:center;align-items:center;background:#1a1a2e}
+
+#calc{
+  width:340px;max-height:100vh;background:linear-gradient(180deg,#e8e4de 0%,#f2efe8 15%,#f2efe8 85%,#ddd8d0 100%);
+  border-radius:24px;padding:12px 14px 16px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.5);
+  display:flex;flex-direction:column;position:relative;
+}
+
+/* Branding */
+.brand{font-size:9px;font-weight:700;letter-spacing:0.5px;color:#333;padding:2px 8px;display:flex;align-items:center;gap:4px}
+.brand::before{content:"⬟";font-size:11px;color:#c00}
+.model{text-align:center;padding:2px 0 6px;font-size:14px;font-weight:700;color:#2a4a5c}
+.model small{font-size:10px;font-weight:400;display:block;letter-spacing:1px;color:#3a6a7c}
+
+/* Display */
+.display{
+  background:#1a2a1a;border-radius:8px;padding:3px;margin:4px 4px 4px;
+  box-shadow:inset 0 2px 8px rgba(0,0,0,0.5),0 1px 0 rgba(255,255,255,0.3);
+}
+.display-inner{
+  background:linear-gradient(180deg,#9aaa72 0%,#b4c488 20%,#c0d090 50%,#b8c886 80%,#a4b474 100%);
+  border-radius:6px;min-height:105px;padding:4px 8px 6px;position:relative;
+  font-family:'Courier New',monospace;color:#1a2a1a;
+}
+.indicators{display:flex;gap:8px;font-size:9px;font-weight:700;padding-bottom:2px;min-height:13px;border-bottom:1px solid rgba(0,0,0,0.08)}
+.indicators span{opacity:0.3}
+.indicators span.active{opacity:1}
+
+.display-body{min-height:80px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;padding-top:4px}
+.display-line{
+  display:flex;justify-content:space-between;align-items:center;
+  min-height:20px;font-size:15px;line-height:1.3;padding:1px 0;
+}
+.display-line .expr{flex:1;overflow:hidden;white-space:nowrap}
+.display-line .result{font-weight:700;margin-left:8px;white-space:nowrap;text-align:right}
+.display-line.error{color:#600;font-weight:700;font-size:13px}
+
+/* MathPrint rendering */
+.mfrac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;margin:0 1px;line-height:1}
+.mfrac-num{border-bottom:1.5px solid #1a2a1a;padding:0 3px 1px;font-size:0.82em;min-width:8px;text-align:center}
+.mfrac-den{padding:1px 3px 0;font-size:0.82em;min-width:8px;text-align:center}
+.mfrac-whole{margin-right:1px}
+sup.expo{font-size:0.7em;vertical-align:super;line-height:0}
+.msqrt{display:inline-flex;align-items:stretch;vertical-align:middle}
+.msqrt-sym{font-size:1.1em;margin-right:0px}
+.msqrt-body{border-top:1.5px solid #1a2a1a;padding:0 2px;min-width:8px}
+.nroot-idx{font-size:0.6em;vertical-align:super;margin-right:-2px}
+
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.cursor{animation:blink 0.8s step-end infinite;font-weight:400}
+.func-name{font-style:normal}
+
+/* Keypad panel */
+.panel{
+  background:linear-gradient(180deg,#6a8ea4 0%,#7a9cad 30%,#7a9cad 70%,#6a8a9a 100%);
+  border-radius:12px;padding:10px 8px 10px;margin-top:4px;flex:1;
+  display:flex;flex-direction:column;gap:0px;
+  position:relative;
+}
+
+/* Key rows — all rows 5 columns, same total width */
+/* padding-top gives space for yellow 2nd-function labels above buttons */
+.kr{display:flex;gap:5px;align-items:flex-end;min-height:30px;padding-top:14px;width:268px;margin:0 auto}
+
+/* Buttons base */
+.btn{
+  height:30px;border:none;border-radius:4px;cursor:pointer;
+  font-family:'Segoe UI',Arial,sans-serif;font-size:11px;font-weight:600;
+  position:relative;outline:none;
+  box-shadow:0 2px 3px rgba(0,0,0,0.25),inset 0 1px 0 rgba(255,255,255,0.15);
+  transition:transform 0.06s,box-shadow 0.06s;
+  display:flex;align-items:center;justify-content:center;
+  padding:0 2px;flex-shrink:0;
+}
+.btn:active{transform:translateY(1px);box-shadow:0 1px 1px rgba(0,0,0,0.2)}
+
+/* 2nd function label above button */
+.sl{
+  position:absolute;top:-13px;left:0;right:0;text-align:center;
+  font-size:8px;font-weight:700;color:#e0c020;pointer-events:none;
+  white-space:nowrap;overflow:visible;line-height:1;
+  text-shadow:0 0 3px rgba(224,192,32,0.4);
+}
+
+/* All buttons same width: (268 - 4×5gap) / 5 ≈ 49px */
+.w5{width:49px}
+
+/* Button colors */
+.b2nd{background:linear-gradient(180deg,#d8b830,#c0a020);color:#333}
+.bctrl{background:linear-gradient(180deg,#7a98a8,#6a8898);color:#fff}
+.bfunc{background:linear-gradient(180deg,#3e5868,#2e4858);color:#fff;font-size:10.5px}
+.bnum{background:linear-gradient(180deg,#6a8898,#5a7888);color:#fff;font-size:14px;font-weight:700}
+.bop{background:linear-gradient(180deg,#3e5868,#2e4858);color:#fff;font-size:14px;font-weight:700}
+.benter{background:linear-gradient(180deg,#2e4858,#1e3848);color:#fff;font-size:11px;font-weight:700}
+.bon{background:linear-gradient(180deg,#6a8898,#5a7888);color:#fff;font-size:10px;font-weight:700}
+
+/* Second active indicator */
+.second-on .b2nd{background:linear-gradient(180deg,#ffe060,#e0c040);box-shadow:0 0 8px rgba(255,220,60,0.5),0 2px 3px rgba(0,0,0,0.25)}
+
+/* D-pad: absolutely positioned spanning top 2 rows */
+.dpad{
+  width:95px;height:80px;
+  position:absolute;top:14px;right:12px;
+  background:radial-gradient(circle,#3a5060 40%,#2a4050 70%,#1a3040 100%);
+  border-radius:40px;box-shadow:0 2px 6px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.1);
+  z-index:2;
+}
+/* D-pad spacer: invisible block so row doesn't collapse */
+.dpad-spacer{display:none}
+.dp{
+  position:absolute;background:transparent;border:none;color:#aac;
+  font-size:10px;cursor:pointer;width:24px;height:24px;
+  display:flex;align-items:center;justify-content:center;border-radius:4px;
+  outline:none;
+}
+.dp:active{background:rgba(255,255,255,0.1)}
+.dp-u{top:2px;left:50%;transform:translateX(-50%)}
+.dp-d{bottom:2px;left:50%;transform:translateX(-50%)}
+.dp-l{left:2px;top:50%;transform:translateY(-50%)}
+.dp-r{right:2px;top:50%;transform:translateY(-50%)}
+
+/* Top 3-button rows: left-aligned, leaving space for the D-pad */
+.kr.row-top3{justify-content:flex-start}
+
+/* Responsive */
+@media(max-height:700px){
+  #calc{padding:6px 12px 8px}
+  .display-inner{min-height:85px}
+  .panel{padding:6px 6px 6px;gap:2px}
+  .btn{height:26px}
+  .kr{min-height:30px}
+  .dpad{width:62px;height:62px}
+}
+@media(max-height:600px){
+  .btn{height:23px;font-size:10px}
+  .kr{min-height:26px;gap:3px}
+  .display-inner{min-height:70px;font-size:13px}
+  .model{font-size:11px;padding:1px 0 3px}
+  .brand{font-size:8px}
+}
+</style>
+</head>
+<body>
+<div id="calc">
+  <div class="brand"><span>TEXAS INSTRUMENTS</span></div>
+  <div class="display">
+    <div class="display-inner">
+      <div class="indicators" id="ind">
+        <span id="ind-2nd">2nd</span>
+        <span id="ind-hyp">HYP</span>
+        <span id="ind-deg" class="active">DEG</span>
+      </div>
+      <div class="display-body" id="dbody"></div>
+    </div>
+  </div>
+  <div class="model">TI-30XS<small>MultiView</small></div>
+  <div class="panel" id="panel"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// TI-30XS MultiView Emulator — Calculator Engine
+// ═══════════════════════════════════════════════════════════════
+
+const BUTTONS = [
+  // Top 2 rows: 3 buttons each (D-pad is absolutely positioned over the right side)
+  ['kr row-top3', [
+    {id:'2nd',main:'2nd',cls:'b2nd',w:'w5'},
+    {id:'mode',main:'mode',second:'quit',cls:'bctrl',w:'w5'},
+    {id:'delete',main:'delete',second:'insert',cls:'bctrl',w:'w5'},
+  ]],
+  ['kr row-top3', [
+    {id:'log',main:'log',second:'10<sup>x</sup>',cls:'bfunc',w:'w5'},
+    {id:'prb',main:'prb',second:'angle',cls:'bfunc',w:'w5'},
+    {id:'data',main:'data',second:'stat',cls:'bfunc',w:'w5'},
+  ]],
+  ['kr', [
+    {id:'ln',main:'ln',second:'e<sup>x</sup>',cls:'bfunc',w:'w5'},
+    {id:'frac',main:'<span style="font-size:9px">n/d</span>',second:'U n/d',cls:'bfunc',w:'w5'},
+    {id:'x10n',main:'×10<sup style="font-size:8px">n</sup>',cls:'bfunc',w:'w5'},
+    {id:'table',main:'table',second:'f⇔d',cls:'bfunc',w:'w5'},
+    {id:'clear',main:'clear',cls:'bfunc',w:'w5'},
+  ]],
+  ['kr', [
+    {id:'pi',main:'π',second:'hyp',cls:'bfunc',w:'w5'},
+    {id:'sin',main:'sin',second:'sin<sup>-1</sup>',cls:'bfunc',w:'w5'},
+    {id:'cos',main:'cos',second:'cos<sup>-1</sup>',cls:'bfunc',w:'w5'},
+    {id:'tan',main:'tan',second:'tan<sup>-1</sup>',cls:'bfunc',w:'w5'},
+    {id:'divide',main:'÷',cls:'bop',w:'w5'},
+  ]],
+  ['kr', [
+    {id:'power',main:'^',second:'<sup>x</sup>√',cls:'bfunc',w:'w5'},
+    {id:'inv',main:'x⁻¹',cls:'bfunc',w:'w5'},
+    {id:'lparen',main:'(',second:'%',cls:'bfunc',w:'w5'},
+    {id:'rparen',main:')',cls:'bfunc',w:'w5'},
+    {id:'multiply',main:'×',cls:'bop',w:'w5'},
+  ]],
+  ['kr', [
+    {id:'square',main:'x²',second:'√',cls:'bfunc',w:'w5'},
+    {id:'7',main:'7',cls:'bnum',w:'w5'},
+    {id:'8',main:'8',cls:'bnum',w:'w5'},
+    {id:'9',main:'9',cls:'bnum',w:'w5'},
+    {id:'subtract',main:'−',cls:'bop',w:'w5'},
+  ]],
+  ['kr', [
+    {id:'var',main:'<span style="font-size:8px">x y z …</span>',second:'clr var',cls:'bfunc',w:'w5'},
+    {id:'4',main:'4',cls:'bnum',w:'w5'},
+    {id:'5',main:'5',cls:'bnum',w:'w5'},
+    {id:'6',main:'6',cls:'bnum',w:'w5'},
+    {id:'add',main:'+',cls:'bop',w:'w5'},
+  ]],
+  ['kr', [
+    {id:'sto',main:'sto→',second:'recall',cls:'bfunc',w:'w5'},
+    {id:'1',main:'1',cls:'bnum',w:'w5'},
+    {id:'2',main:'2',cls:'bnum',w:'w5'},
+    {id:'3',main:'3',cls:'bnum',w:'w5'},
+    {id:'toggle',main:'◄►',second:'s⇔u',cls:'bfunc',w:'w5'},
+  ]],
+  ['kr', [
+    {id:'on',main:'on',second:'off',cls:'bon',w:'w5'},
+    {id:'0',main:'0',cls:'bnum',w:'w5'},
+    {id:'dot',main:'.',cls:'bnum',w:'w5'},
+    {id:'neg',main:'(−)',second:'ans',cls:'bnum',w:'w5'},
+    {id:'enter',main:'enter',cls:'benter',w:'w5'},
+  ]],
+];
+
+// ── Build keypad DOM ──
+(function buildKeypad() {
+  const panel = document.getElementById('panel');
+  BUTTONS.forEach(([rowCls, btns]) => {
+    const row = document.createElement('div');
+    row.className = rowCls;
+    btns.forEach(b => {
+      const el = document.createElement('button');
+      el.className = 'btn ' + b.cls + ' ' + (b.w||'');
+      let html = '';
+      if (b.second) html += '<span class="sl">' + b.second + '</span>';
+      html += b.main;
+      el.innerHTML = html;
+      el.addEventListener('pointerdown', e => { e.preventDefault(); C.pressKey(b.id); });
+      row.appendChild(el);
+    });
+    panel.appendChild(row);
+  });
+  // Add D-pad (absolutely positioned, spanning top 2 rows)
+  const d = document.createElement('div');
+  d.className = 'dpad';
+  [['dp-u','▲','up'],['dp-d','▼','down'],['dp-l','◀','left'],['dp-r','▶','right']].forEach(([c,t,k])=>{
+    const btn = document.createElement('button');
+    btn.className = 'dp ' + c;
+    btn.innerHTML = t;
+    btn.addEventListener('pointerdown', e => { e.preventDefault(); C.pressKey(k); });
+    d.appendChild(btn);
+  });
+  panel.appendChild(d);
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// Calculator State & Engine
+// ═══════════════════════════════════════════════════════════════
+
+const C = {
+  tokens: [],          // current expression tokens
+  openStructs: [],     // stack of open structures (frac, sup, sqrt, nroot)
+  history: [],         // {tokens, result, resultValue, resultHTML}
+  secondActive: false,
+  angleMode: 'DEG',    // DEG, RAD, GRAD
+  ans: 0,
+  justEvaluated: false,
+  error: null,
+  showFrac: false,
+
+  // Variables
+  variables: {x:0,y:0,z:0,t:0,a:0,b:0,c:0},
+  stoMode: false,
+  recallMode: false,
+  angleMenu: false,
+
+  // Data editor / Statistics
+  dataMode: false,     // true when data editor is active
+  dataLists: { L1: [], L2: [], L3: [] },
+  dataActiveList: 'L1',
+  dataCursor: 0,       // current row in the data editor
+  dataInput: '',       // current cell input
+  statResult: null,    // stat results to display
+
+  // ── Key dispatch ──
+  pressKey(id) {
+    // Handle variable menu
+    if (this.varMenu) {
+      if (id === 'clear' || id === 'on') { this.varMenu = null; this.render(); return; }
+      // Number keys 1-7 select variables
+      const vi = '1234567'.indexOf(id);
+      if (vi >= 0 && vi < this.varMenu.vars.length) {
+        this.handleVarSelect(this.varMenu.vars[vi]); return;
+      }
+      return; // ignore other keys while menu is open
+    }
+
+    // Handle stat results display
+    if (this.statResult) {
+      if (id === 'clear' || id === 'on') { this.statResult = null; this.render(); return; }
+      if (id === 'down') { this.statResult.scroll = Math.min((this.statResult.scroll||0)+1, this.statResult.lines.length-3); this.render(); return; }
+      if (id === 'up') { this.statResult.scroll = Math.max((this.statResult.scroll||0)-1, 0); this.render(); return; }
+      this.statResult = null;
+    }
+
+    // Handle stat setup (choosing lists)
+    if (this.statSetup) { this.handleStatSetupKey(id); return; }
+
+    // Handle stat menu
+    if (this.statMenu) { this.handleStatMenuKey(id); return; }
+
+    // Handle prb menu
+    if (this.prbMenu) { this.handlePrbKey(id); return; }
+
+    // Handle angle menu
+    if (this.angleMenu) {
+      this.angleMenu = false;
+      if (id === '1') this.angleMode = 'DEG';
+      else if (id === '2') this.angleMode = 'RAD';
+      else if (id === '3') this.angleMode = 'GRAD';
+      else if (id === '4') this.tokens.push({type:'const',value:'°'});
+      else if (id === '5') this.tokens.push({type:'const',value:"'"});
+      else if (id === '6') this.tokens.push({type:'const',value:'"'});
+      else if (id === '7') this.tokens.push({type:'const',value:'r'});
+      else if (id === '8') this.tokens.push({type:'func',value:'▸DMS'},{type:'lparen'});
+      else if (id === '9') this.tokens.push({type:'func',value:'R▸P'},{type:'lparen'});
+      else if (id === '0') this.tokens.push({type:'func',value:'P▸R'},{type:'lparen'});
+      this.render(); return;
+    }
+
+    // Handle table mode
+    if (this.tableMode) { this.handleTableKey(id); return; }
+
+    // Handle data editor mode
+    if (this.dataMode) { this.handleDataKey(id); return; }
+
+    if (this.error && id !== 'clear' && id !== 'on') {
+      this.error = null;
+      this.tokens = [];
+      this.openStructs = [];
+    }
+
+    // Handle 2nd key
+    if (id === '2nd') { this.secondActive = !this.secondActive; this.render(); return; }
+
+    const is2 = this.secondActive;
+    if (is2 && id !== '2nd') { this.secondActive = false; }
+
+    // Start new expression after evaluation
+    if (this.justEvaluated && !['toggle','clear','on','up','down','left','right','delete'].includes(id)) {
+      if ('0123456789'.includes(id) || id === 'dot' || id === 'pi' || id === 'frac' ||
+          id === 'lparen' || id === 'sqrt' || id === 'neg' ||
+          ['sin','cos','tan','log','ln'].includes(id)) {
+        if (is2 && id === 'neg') { /* ans — keep justEvaluated handling below */ }
+        else { this.tokens = []; this.openStructs = []; }
+      } else if (['add','subtract','multiply','divide','power','square','inv'].includes(id)) {
+        this.tokens = [{type:'const',value:'Ans'}];
+        this.openStructs = [];
+      }
+      this.justEvaluated = false;
+    }
+
+    switch (id) {
+      case '0':case '1':case '2':case '3':case '4':
+      case '5':case '6':case '7':case '8':case '9':
+        this.tokens.push({type:'digit',value:id}); break;
+      case 'dot':
+        this.tokens.push({type:'decimal',value:'.'}); break;
+      case 'add': this.autoCloseAndPush({type:'op',value:'+'}); break;
+      case 'subtract': this.autoCloseAndPush({type:'op',value:'−'}); break;
+      case 'multiply': this.autoCloseAndPush({type:'op',value:'×'}); break;
+      case 'divide': this.autoCloseAndPush({type:'op',value:'÷'}); break;
+      case 'neg':
+        if (is2) { this.tokens.push({type:'const',value:'Ans'}); }
+        else { this.tokens.push({type:'neg'}); }
+        break;
+      case 'pi': this.tokens.push({type:'const',value:'π'}); break;
+      case 'lparen':
+        if (is2) { this.tokens.push({type:'percent'}); }
+        else { this.tokens.push({type:'lparen'}); }
+        break;
+      case 'rparen': this.tokens.push({type:'rparen'}); break;
+      case 'sin': this.insertFunc(is2 ? 'sin⁻¹' : 'sin'); break;
+      case 'cos': this.insertFunc(is2 ? 'cos⁻¹' : 'cos'); break;
+      case 'tan': this.insertFunc(is2 ? 'tan⁻¹' : 'tan'); break;
+      case 'log': this.insertFunc(is2 ? '10^' : 'log'); break;
+      case 'ln': this.insertFunc(is2 ? 'e^' : 'ln'); break;
+      case 'frac':
+        if (is2) this.insertMixedFrac();
+        else this.insertFrac();
+        break;
+      case 'power':
+        if (is2) this.insertNthRoot();
+        else this.insertExponent();
+        break;
+      case 'square':
+        if (is2) this.insertSqrt();
+        else this.tokens.push({type:'square'});
+        break;
+      case 'inv': this.tokens.push({type:'inverse'}); break;
+      case 'x10n': this.insertX10n(); break;
+      case 'enter': this.evaluate(); break;
+      case 'clear': case 'clear2': this.clearKey(); break;
+      case 'on': this.clearAll(); break;
+      case 'delete': this.deleteKey(); break;
+      case 'toggle': this.toggleAnswer(); break;
+      case 'comma':
+        this.tokens.push({type:'comma'}); break;
+      case 'var': {
+        const vars = ['x','y','z','t','a','b','c'];
+        // If last token is a variable, cycle it
+        const last = this.tokens[this.tokens.length - 1];
+        if (last && last.type === 'const' && vars.includes(last.value)) {
+          last.value = vars[(vars.indexOf(last.value) + 1) % vars.length];
+        } else {
+          this.tokens.push({type:'const',value:'x'});
+        }
+        break;
+      }
+      case 'sto':
+        if (is2) { this.showVarMenu('recall'); }
+        else { this.tokens.push({type:'sto_arrow'}); }
+        break;
+      case 'prb':
+        if (is2) { this.angleMenu = true; }
+        else { this.prbMenu = true; }
+        this.render(); return;
+      case 'data':
+        if (is2) { this.openStatMenu(); }
+        else { this.toggleDataEditor(); }
+        break;
+      case 'table':
+        if (is2) { this.toggleAnswer(); } // f⇔d = fraction toggle
+        else { this.openTable(); }
+        break;
+      case 'mode':
+        if (is2) { this.tokens = []; this.openStructs = []; this.error = null; }
+        else { this.cycleAngleMode(); }
+        break;
+      case 'down': this.moveDown(); break;
+      case 'right': this.moveRight(); break;
+      case 'up': case 'left': break; // minimal cursor support for v1
+    }
+    this.render();
+  },
+
+  // ── Token insertion helpers ──
+  autoCloseAndPush(tok) {
+    this.autoCloseAll();
+    this.tokens.push(tok);
+  },
+
+  insertFunc(name) {
+    this.tokens.push({type:'func',value:name});
+    this.tokens.push({type:'lparen'});
+  },
+
+  insertFrac() {
+    // If preceding tokens are digits, pull them into numerator
+    let numToks = [];
+    let i = this.tokens.length - 1;
+    while (i >= 0 && (this.tokens[i].type === 'digit' || this.tokens[i].type === 'decimal')) {
+      numToks.unshift(this.tokens[i]); i--;
+    }
+    if (numToks.length > 0) {
+      this.tokens.splice(i + 1, numToks.length);
+      this.tokens.push({type:'frac_start'});
+      this.tokens.push(...numToks);
+      this.tokens.push({type:'frac_sep'});
+      this.openStructs.push({type:'frac',phase:'den'});
+    } else {
+      this.tokens.push({type:'frac_start'});
+      this.openStructs.push({type:'frac',phase:'num'});
+    }
+  },
+
+  insertMixedFrac() {
+    this.tokens.push({type:'mixed_start'});
+    this.tokens.push({type:'frac_start'});
+    this.openStructs.push({type:'frac',phase:'num'});
+  },
+
+  insertExponent() {
+    this.tokens.push({type:'sup_start'});
+    this.openStructs.push({type:'sup'});
+  },
+
+  insertSqrt() {
+    this.tokens.push({type:'sqrt_start'});
+    this.openStructs.push({type:'sqrt'});
+  },
+
+  insertNthRoot() {
+    // Pull preceding digits as root index
+    let idxToks = [];
+    let i = this.tokens.length - 1;
+    while (i >= 0 && (this.tokens[i].type === 'digit' || this.tokens[i].type === 'decimal')) {
+      idxToks.unshift(this.tokens[i]); i--;
+    }
+    this.tokens.splice(i + 1, idxToks.length);
+    this.tokens.push({type:'nroot_start'});
+    if (idxToks.length > 0) {
+      this.tokens.push(...idxToks);
+    }
+    this.tokens.push({type:'nroot_sep'});
+    this.openStructs.push({type:'nroot'});
+  },
+
+  insertX10n() {
+    this.tokens.push({type:'x10n'});
+    this.tokens.push({type:'sup_start'});
+    this.openStructs.push({type:'sup'});
+  },
+
+  moveDown() {
+    const top = this.openStructs[this.openStructs.length - 1];
+    if (top && top.type === 'frac' && top.phase === 'num') {
+      this.tokens.push({type:'frac_sep'});
+      top.phase = 'den';
+    }
+  },
+
+  moveRight() {
+    if (this.openStructs.length > 0) {
+      this.closeCurrentStruct();
+    }
+  },
+
+  closeCurrentStruct() {
+    const s = this.openStructs.pop();
+    if (!s) return;
+    switch (s.type) {
+      case 'frac':
+        if (s.phase === 'num') this.tokens.push({type:'frac_sep'});
+        this.tokens.push({type:'frac_end'}); break;
+      case 'sup': this.tokens.push({type:'sup_end'}); break;
+      case 'sqrt': this.tokens.push({type:'sqrt_end'}); break;
+      case 'nroot': this.tokens.push({type:'nroot_end'}); break;
+    }
+  },
+
+  autoCloseAll() {
+    while (this.openStructs.length > 0) this.closeCurrentStruct();
+  },
+
+  deleteKey() {
+    if (this.tokens.length === 0) return;
+    const last = this.tokens[this.tokens.length - 1];
+    // If deleting a structure opener, also pop from openStructs
+    if (['frac_start','sup_start','sqrt_start','nroot_start','nroot_sep'].includes(last.type)) {
+      if (this.openStructs.length > 0) this.openStructs.pop();
+    }
+    if (last.type === 'frac_sep') {
+      const top = this.openStructs[this.openStructs.length - 1];
+      if (top && top.type === 'frac') top.phase = 'num';
+    }
+    this.tokens.pop();
+    // If we deleted an lparen that was part of a function, also delete the func
+    if (this.tokens.length > 0 && this.tokens[this.tokens.length-1].type === 'func') {
+      this.tokens.pop();
+    }
+  },
+
+  clearKey() {
+    if (this.error) { this.error = null; this.render(); return; }
+    if (this.tokens.length > 0) {
+      this.tokens = []; this.openStructs = [];
+    } else {
+      this.history = [];
+    }
+  },
+
+  clearAll() {
+    this.tokens = []; this.openStructs = []; this.history = [];
+    this.error = null; this.ans = 0; this.justEvaluated = false;
+    this.showFrac = false; this.secondActive = false;
+    this.dataMode = false; this.statResult = null;
+    this.varMenu = null; this.stoMode = false;
+  },
+
+  showVarMenu(mode) {
+    // mode: 'insert' (var key), 'store' (sto→), 'recall' (2nd+sto→)
+    this.varMenu = { mode, vars: ['x','y','z','t','a','b','c'] };
+    this.render();
+  },
+
+  handleVarSelect(varName) {
+    const menu = this.varMenu;
+    this.varMenu = null;
+    if (!menu) return;
+    if (menu.mode === 'insert') {
+      this.tokens.push({type:'const',value:varName});
+    } else if (menu.mode === 'recall') {
+      const val = this.variables[varName] || 0;
+      this.tokens.push({type:'const',value:varName});
+    } else if (menu.mode === 'store') {
+      // Evaluate current expression and store result
+      if (this.tokens.length > 0) {
+        this.autoCloseAll();
+        try {
+          const preprocessed = preprocess(this.tokens, this.ans);
+          const result = parse(preprocessed, this.angleMode);
+          this.variables[varName] = result;
+          this.ans = result;
+          this.history.push({
+            tokens: [...this.tokens],
+            resultValue: result,
+            resultHTML: formatResult(result) + '→' + varName,
+          });
+          this.tokens = [];
+          this.openStructs = [];
+          this.justEvaluated = true;
+        } catch(e) {
+          this.error = e.message || 'SYNTAX ERROR';
+        }
+      }
+    }
+    this.render();
+  },
+
+  cycleAngleMode() {
+    const modes = ['DEG','RAD','GRAD'];
+    this.angleMode = modes[(modes.indexOf(this.angleMode) + 1) % 3];
+  },
+
+  toggleAnswer() {
+    if (this.history.length === 0) return;
+    const last = this.history[this.history.length - 1];
+    if (last.resultValue === null || last.resultValue === undefined) return;
+    this.showFrac = !this.showFrac;
+    if (this.showFrac) {
+      const f = toFraction(last.resultValue);
+      if (f && f.den !== 1 && f.den > 0) {
+        if (Math.abs(f.num) > Math.abs(f.den)) {
+          const whole = Math.trunc(f.num / f.den);
+          const rem = Math.abs(f.num) - Math.abs(whole) * f.den;
+          if (rem !== 0) {
+            last.resultHTML = '<span class="mfrac-whole">' + whole + '</span>' +
+              renderFracHTML(rem, f.den);
+          } else {
+            last.resultHTML = String(whole);
+          }
+        } else {
+          last.resultHTML = renderFracHTML(f.num, f.den);
+        }
+      } else {
+        this.showFrac = false;
+      }
+    }
+    if (!this.showFrac) {
+      last.resultHTML = formatResult(last.resultValue);
+    }
+    this.render();
+  },
+
+  // ── Data Editor (spreadsheet-style, all columns visible) ──
+  toggleDataEditor() {
+    this.dataMode = !this.dataMode;
+    if (this.dataMode) {
+      this.dataRow = 0;
+      this.dataCol = 0; // 0=L1, 1=L2, 2=L3
+      this.dataInput = '';
+      this.dataScroll = 0;
+    }
+    this.render();
+  },
+
+  handleDataKey(id) {
+    if (id === '2nd') { this.secondActive = !this.secondActive; this.render(); return; }
+    const is2 = this.secondActive;
+    if (is2) this.secondActive = false;
+
+    if (id === 'data' && !is2) { this.dataMode = false; this.render(); return; }
+    if (id === 'data' && is2) { this.dataMode = false; this.openStatMenu(); return; }
+    if (id === 'clear') {
+      if (this.dataInput.length > 0) { this.dataInput = ''; }
+      else {
+        const listName = ['L1','L2','L3'][this.dataCol];
+        this.dataLists[listName] = [];
+      }
+      this.render(); return;
+    }
+    if (id === 'delete') {
+      if (this.dataInput.length > 0) { this.dataInput = this.dataInput.slice(0,-1); }
+      else {
+        const listName = ['L1','L2','L3'][this.dataCol];
+        const list = this.dataLists[listName];
+        if (this.dataRow < list.length) {
+          list.splice(this.dataRow, 1);
+        }
+      }
+      this.render(); return;
+    }
+    if ('0123456789'.includes(id)) { this.dataInput += id; this.render(); return; }
+    if (id === 'dot') { this.dataInput += '.'; this.render(); return; }
+    if (id === 'neg') {
+      if (this.dataInput.startsWith('-')) this.dataInput = this.dataInput.slice(1);
+      else this.dataInput = '-' + this.dataInput;
+      this.render(); return;
+    }
+    if (id === 'enter' || id === 'down') {
+      this.commitDataInput();
+      this.dataRow++;
+      this.loadDataCell();
+      this.render(); return;
+    }
+    if (id === 'up') {
+      this.commitDataInput();
+      this.dataRow = Math.max(0, this.dataRow - 1);
+      this.loadDataCell();
+      this.render(); return;
+    }
+    if (id === 'right') {
+      this.commitDataInput();
+      this.dataCol = (this.dataCol + 1) % 3;
+      this.loadDataCell();
+      this.render(); return;
+    }
+    if (id === 'left') {
+      this.commitDataInput();
+      this.dataCol = (this.dataCol + 2) % 3;
+      this.loadDataCell();
+      this.render(); return;
+    }
+  },
+
+  commitDataInput() {
+    if (this.dataInput.length > 0) {
+      const val = parseFloat(this.dataInput);
+      if (!isNaN(val)) {
+        const listName = ['L1','L2','L3'][this.dataCol];
+        const list = this.dataLists[listName];
+        while (list.length <= this.dataRow) list.push(0);
+        list[this.dataRow] = val;
+      }
+      this.dataInput = '';
+    }
+  },
+
+  loadDataCell() {
+    const listName = ['L1','L2','L3'][this.dataCol];
+    const list = this.dataLists[listName];
+    this.dataInput = this.dataRow < list.length ? String(list[this.dataRow]) : '';
+    // Adjust scroll so cursor is visible
+    if (this.dataRow < this.dataScroll) this.dataScroll = this.dataRow;
+    if (this.dataRow >= this.dataScroll + 3) this.dataScroll = this.dataRow - 2;
+  },
+
+  // ── Stat Menu (2nd + data) ──
+  openStatMenu() {
+    this.secondActive = false;
+    this.statMenu = true;
+    this.render();
+  },
+
+  handleStatMenuKey(id) {
+    if (id === 'clear' || id === 'on') { this.statMenu = false; this.render(); return; }
+    if (id === '1') { this.statMenu = false; this.statSetup = {type:'1var', step:0, dataList:'L1', freqList:'one'}; this.render(); return; }
+    if (id === '2') { this.statMenu = false; this.statSetup = {type:'2var', step:0, dataList:'L1', yList:'L2', freqList:'one'}; this.render(); return; }
+  },
+
+  statSetup: null,
+
+  handleStatSetupKey(id) {
+    const s = this.statSetup;
+    if (id === 'clear' || id === 'on') { this.statSetup = null; this.render(); return; }
+    if (id === 'left' || id === 'right') {
+      const opts = ['L1','L2','L3'];
+      const freqOpts = ['one','L1','L2','L3'];
+      if (s.type === '1var') {
+        if (s.step === 0) { const i = opts.indexOf(s.dataList); s.dataList = opts[(i+(id==='right'?1:2))%3]; }
+        if (s.step === 1) { const i = freqOpts.indexOf(s.freqList); s.freqList = freqOpts[(i+(id==='right'?1:3))%4]; }
+      } else {
+        if (s.step === 0) { const i = opts.indexOf(s.dataList); s.dataList = opts[(i+(id==='right'?1:2))%3]; }
+        if (s.step === 1) { const i = opts.indexOf(s.yList); s.yList = opts[(i+(id==='right'?1:2))%3]; }
+        if (s.step === 2) { const i = freqOpts.indexOf(s.freqList); s.freqList = freqOpts[(i+(id==='right'?1:3))%4]; }
+      }
+      this.render(); return;
+    }
+    if (id === 'enter' || id === 'down') {
+      const maxSteps = s.type === '1var' ? 2 : 3;
+      s.step++;
+      if (s.step >= maxSteps) { this.runStats(s); this.statSetup = null; return; }
+      this.render(); return;
+    }
+    if (id === 'up') { s.step = Math.max(0, s.step - 1); this.render(); return; }
+  },
+
+  runStats(setup) {
+    const xData = this.dataLists[setup.dataList];
+    if (xData.length === 0) { this.error = 'STAT'; this.render(); return; }
+    // Build frequency-weighted data
+    let freq;
+    if (setup.freqList === 'one') {
+      freq = xData.map(() => 1);
+    } else {
+      freq = this.dataLists[setup.freqList];
+      if (freq.length !== xData.length) { this.error = 'DIM MISMATCH'; this.render(); return; }
+    }
+    const n = freq.reduce((a,b)=>a+b, 0);
+    const sumX = xData.reduce((a,x,i)=>a+x*freq[i], 0);
+    const meanX = sumX / n;
+    const sumX2 = xData.reduce((a,x,i)=>a+x*x*freq[i], 0);
+    const sxNum = sumX2 - sumX*sumX/n;
+    const sx = n > 1 ? Math.sqrt(sxNum / (n-1)) : 0;
+    const sigmaX = Math.sqrt(sxNum / n);
+    // Expand data for sorting/quartiles
+    let expanded = [];
+    xData.forEach((x,i) => { for (let j = 0; j < freq[i]; j++) expanded.push(x); });
+    expanded.sort((a,b)=>a-b);
+    const en = expanded.length;
+    const minX = expanded[0], maxX = expanded[en-1];
+    const med = en%2===1 ? expanded[Math.floor(en/2)] : (expanded[en/2-1]+expanded[en/2])/2;
+    const q1 = expanded[Math.floor((en-1)/4)];
+    const q3 = expanded[Math.floor(3*(en-1)/4)];
+
+    let lines = [
+      'n=' + n,
+      'x̄=' + formatResult(meanX),
+      'Sx=' + formatResult(sx),
+      'σx=' + formatResult(sigmaX),
+      'Σx=' + formatResult(sumX),
+      'Σx²=' + formatResult(sumX2),
+      'MinX=' + formatResult(minX),
+      'Q1=' + formatResult(q1),
+      'Med=' + formatResult(med),
+      'Q3=' + formatResult(q3),
+      'MaxX=' + formatResult(maxX),
+    ];
+
+    if (setup.type === '2var') {
+      const yData = this.dataLists[setup.yList];
+      if (yData.length !== xData.length) { this.error = 'DIM MISMATCH'; this.render(); return; }
+      const sumY = yData.reduce((a,y,i)=>a+y*freq[i], 0);
+      const meanY = sumY / n;
+      const sumY2 = yData.reduce((a,y,i)=>a+y*y*freq[i], 0);
+      const syNum = sumY2 - sumY*sumY/n;
+      const sy = n > 1 ? Math.sqrt(syNum / (n-1)) : 0;
+      const sigmaY = Math.sqrt(syNum / n);
+      const sumXY = xData.reduce((a,x,i)=>a+x*yData[i]*freq[i], 0);
+      const bReg = (sumXY - sumX*sumY/n) / (sumX2 - sumX*sumX/n);
+      const aReg = meanY - bReg * meanX;
+      const r = sxNum > 0 && syNum > 0 ? (sumXY - sumX*sumY/n) / Math.sqrt(sxNum * syNum) : 0;
+      lines.push(
+        'ȳ=' + formatResult(meanY),
+        'Sy=' + formatResult(sy),
+        'σy=' + formatResult(sigmaY),
+        'Σy=' + formatResult(sumY),
+        'Σy²=' + formatResult(sumY2),
+        'Σxy=' + formatResult(sumXY),
+        'a=' + formatResult(aReg),
+        'b=' + formatResult(bReg),
+        'r=' + formatResult(r),
+      );
+    }
+
+    this.statResult = { scroll: 0, lines };
+    this.render();
+  },
+
+  // ── Table Mode ──
+  tableMode: false,
+  tableExpr: '',
+  tableValues: [],
+  tableInput: '',
+  tablePhase: 'expr', // 'expr', 'setup', 'view'
+  tableStart: 0,
+  tableStep: 1,
+  tableSource: 'auto', // 'auto' or 'L1','L2','L3'
+  tableScroll: 0,
+
+  openTable() {
+    this.tableMode = true;
+    this.tablePhase = 'expr';
+    this.tableExpr = '';
+    this.tableInput = '';
+    this.render();
+  },
+
+  handleTableKey(id) {
+    if (id === '2nd') { this.secondActive = !this.secondActive; this.render(); return; }
+    const is2 = this.secondActive;
+    if (is2) this.secondActive = false;
+
+    if (id === 'clear') {
+      if (this.tablePhase === 'view') { this.tableMode = false; }
+      else if (this.tableInput.length > 0) { this.tableInput = ''; }
+      else { this.tableMode = false; }
+      this.render(); return;
+    }
+
+    if (this.tablePhase === 'expr') {
+      // Building the function expression
+      if ('0123456789'.includes(id)) { this.tableInput += id; }
+      else if (id === 'dot') { this.tableInput += '.'; }
+      else if (id === 'add') { this.tableInput += '+'; }
+      else if (id === 'subtract') { this.tableInput += '-'; }
+      else if (id === 'multiply') { this.tableInput += '*'; }
+      else if (id === 'divide') { this.tableInput += '/'; }
+      else if (id === 'power') { this.tableInput += '^'; }
+      else if (id === 'square') { this.tableInput += '^2'; }
+      else if (id === 'var' || id === 'neg') {
+        if (id === 'var') this.tableInput += 'x';
+        else { this.tableInput += '(-'; }
+      }
+      else if (id === 'pi') { this.tableInput += 'π'; }
+      else if (id === 'sin') { this.tableInput += (is2?'asin(':'sin('); }
+      else if (id === 'cos') { this.tableInput += (is2?'acos(':'cos('); }
+      else if (id === 'tan') { this.tableInput += (is2?'atan(':'tan('); }
+      else if (id === 'log') { this.tableInput += (is2?'10^(':'log('); }
+      else if (id === 'ln') { this.tableInput += (is2?'exp(':'ln('); }
+      else if (id === 'lparen') { this.tableInput += '('; }
+      else if (id === 'rparen') { this.tableInput += ')'; }
+      else if (id === 'inv') { this.tableInput += '^(-1)'; }
+      else if (id === 'delete') { this.tableInput = this.tableInput.slice(0,-1); }
+      else if (id === 'enter') {
+        if (this.tableInput.length > 0) {
+          this.tableExpr = this.tableInput;
+          this.tableInput = '';
+          this.tablePhase = 'setup';
+          this.tableSource = 'auto';
+          this.tableStart = 0;
+          this.tableStep = 1;
+          this._setupField = 0; // 0=source, 1=start, 2=step
+        }
+      }
+      this.render(); return;
+    }
+
+    if (this.tablePhase === 'setup') {
+      if ('0123456789'.includes(id)) { this.tableInput += id; }
+      else if (id === 'dot') { this.tableInput += '.'; }
+      else if (id === 'neg') {
+        if (this.tableInput.startsWith('-')) this.tableInput = this.tableInput.slice(1);
+        else this.tableInput = '-' + this.tableInput;
+      }
+      else if (id === 'delete') { this.tableInput = this.tableInput.slice(0,-1); }
+      else if (id === 'left' || id === 'right') {
+        // In source field: cycle auto/L1/L2/L3
+        if (this._setupField === 0) {
+          const sources = ['auto','L1','L2','L3'];
+          const ci = sources.indexOf(this.tableSource);
+          this.tableSource = sources[(ci + (id==='right'?1:3)) % 4];
+        }
+      }
+      else if (id === 'enter' || id === 'down') {
+        // Save current field and advance
+        if (this._setupField === 0) {
+          this._setupField = 1;
+          this.tableInput = String(this.tableStart);
+        } else if (this._setupField === 1) {
+          this.tableStart = parseFloat(this.tableInput) || 0;
+          this._setupField = 2;
+          this.tableInput = String(this.tableStep);
+        } else {
+          this.tableStep = parseFloat(this.tableInput) || 1;
+          if (this.tableStep === 0) this.tableStep = 1;
+          this.generateTable();
+          this.tablePhase = 'view';
+          this.tableScroll = 0;
+        }
+      }
+      else if (id === 'up') {
+        if (this._setupField > 0) {
+          if (this._setupField === 1) this.tableStart = parseFloat(this.tableInput) || 0;
+          if (this._setupField === 2) this.tableStep = parseFloat(this.tableInput) || 1;
+          this._setupField--;
+          this.tableInput = this._setupField === 1 ? String(this.tableStart) : '';
+        }
+      }
+      this.render(); return;
+    }
+
+    if (this.tablePhase === 'view') {
+      if (id === 'up') { this.tableScroll = Math.max(0, this.tableScroll - 1); }
+      else if (id === 'down') { this.tableScroll = Math.min(this.tableValues.length - 3, this.tableScroll + 1); }
+      else if (id === 'clear' || id === 'on') { this.tableMode = false; }
+      this.render(); return;
+    }
+  },
+
+  generateTable() {
+    this.tableValues = [];
+    let xVals = [];
+    if (this.tableSource === 'auto') {
+      for (let i = 0; i < 20; i++) {
+        xVals.push(this.tableStart + i * this.tableStep);
+      }
+    } else {
+      xVals = [...(this.dataLists[this.tableSource] || [])];
+    }
+    for (const x of xVals) {
+      try {
+        const y = this.evalTableExpr(this.tableExpr, x);
+        this.tableValues.push({ x, y: isFinite(y) ? y : NaN });
+      } catch(e) {
+        this.tableValues.push({ x, y: NaN });
+      }
+    }
+  },
+
+  evalTableExpr(expr, xVal) {
+    // Convert table expression string to evaluable tokens
+    let s = expr;
+    s = s.replace(/π/g, String(Math.PI));
+    s = s.replace(/\bx\b/g, '(' + xVal + ')');
+    s = s.replace(/\bsin\(/g, 'Math.sin((Math.PI/180)*');
+    s = s.replace(/\bcos\(/g, 'Math.cos((Math.PI/180)*');
+    s = s.replace(/\btan\(/g, 'Math.tan((Math.PI/180)*');
+    s = s.replace(/\basin\(/g, 'Math.asin(');
+    s = s.replace(/\bacos\(/g, 'Math.acos(');
+    s = s.replace(/\batan\(/g, 'Math.atan(');
+    s = s.replace(/\blog\(/g, 'Math.log10(');
+    s = s.replace(/\bln\(/g, 'Math.log(');
+    s = s.replace(/\bexp\(/g, 'Math.exp(');
+    s = s.replace(/10\^\(/g, 'Math.pow(10,');
+    s = s.replace(/\^/g, '**');
+    if (this.angleMode === 'RAD') {
+      s = s.replace(/\(Math\.PI\/180\)\*/g, '');
+    } else if (this.angleMode === 'GRAD') {
+      s = s.replace(/Math\.PI\/180/g, 'Math.PI/200');
+    }
+    return Function('"use strict"; return (' + s + ')')();
+  },
+
+  // ── PRB Menu ──
+  prbMenu: false,
+
+  handlePrbKey(id) {
+    if (id === 'clear' || id === 'on') { this.prbMenu = false; this.render(); return; }
+    this.prbMenu = false;
+    if (id === '1') {
+      // nPr: insert as postfix-style operator
+      this.tokens.push({type:'op_nPr'});
+    } else if (id === '2') {
+      // nCr
+      this.tokens.push({type:'op_nCr'});
+    } else if (id === '3') {
+      // ! factorial
+      this.tokens.push({type:'factorial'});
+    } else if (id === '4') {
+      // rand real
+      this.tokens.push({type:'const',value:'rand'});
+    } else if (id === '5') {
+      // randint( — user types low,high)
+      this.tokens.push({type:'func',value:'randint'});
+      this.tokens.push({type:'lparen'});
+    }
+    this.render();
+  },
+
+  // ── Evaluate ──
+  evaluate() {
+    if (this.tokens.length === 0) return;
+    this.autoCloseAll();
+
+    // Check for store: expr → var
+    const stoIdx = this.tokens.findIndex(t => t.type === 'sto_arrow');
+    if (stoIdx >= 0) {
+      const exprTokens = this.tokens.slice(0, stoIdx);
+      const varToken = this.tokens[stoIdx + 1];
+      if (exprTokens.length === 0 || !varToken || varToken.type !== 'const' || !this.variables.hasOwnProperty(varToken.value)) {
+        this.error = 'SYNTAX ERROR'; this.render(); return;
+      }
+      try {
+        const preprocessed = preprocess(exprTokens, this.ans);
+        const result = parse(preprocessed, this.angleMode);
+        if (!isFinite(result)) throw new Error(isNaN(result) ? 'DOMAIN' : 'OVERFLOW');
+        this.variables[varToken.value] = result;
+        this.ans = result;
+        this.history.push({ tokens: [...this.tokens], resultValue: result, resultHTML: formatResult(result) });
+        this.tokens = []; this.openStructs = [];
+        this.justEvaluated = true; this.showFrac = false; this.error = null;
+      } catch(e) { this.error = e.message || 'SYNTAX ERROR'; }
+      this.render(); return;
+    }
+
+    // Close unclosed parens
+    let openP = 0;
+    this.tokens.forEach(t => { if (t.type === 'lparen') openP++; if (t.type === 'rparen') openP--; });
+    while (openP > 0) { this.tokens.push({type:'rparen'}); openP--; }
+
+    try {
+      const preprocessed = preprocess(this.tokens, this.ans);
+      const result = parse(preprocessed, this.angleMode);
+      if (!isFinite(result)) throw new Error(isNaN(result) ? 'DOMAIN' : 'OVERFLOW');
+      this.ans = result;
+      const dispResult = formatResult(result);
+      this.history.push({
+        tokens: [...this.tokens],
+        resultValue: result,
+        resultHTML: dispResult,
+      });
+      if (this.history.length > 20) this.history.shift();
+      this.tokens = [];
+      this.openStructs = [];
+      this.justEvaluated = true;
+      this.showFrac = false;
+      this.error = null;
+    } catch (e) {
+      this.error = e.message || 'SYNTAX ERROR';
+    }
+  },
+
+  // ── Render display ──
+  render() {
+    const dbody = document.getElementById('dbody');
+    let html = '';
+
+    // Variable menu display
+    if (this.varMenu) {
+      const m = this.varMenu;
+      const title = m.mode === 'store' ? 'Store →' : m.mode === 'recall' ? 'Recall' : 'Variable';
+      html += '<div class="display-line" style="font-size:12px;font-weight:700"><span class="expr">' + title + '</span></div>';
+      for (let i = 0; i < m.vars.length; i++) {
+        const v = m.vars[i];
+        const val = this.variables[v] || 0;
+        html += '<div class="display-line" style="font-size:12px"><span class="expr">' +
+          (i+1) + ': ' + v + ' = ' + formatResult(val) + '</span></div>';
+      }
+      dbody.innerHTML = html;
+      this.updateIndicators();
+      return;
+    }
+
+    // PRB menu
+    if (this.prbMenu) {
+      html += '<div class="display-line" style="font-size:12px;font-weight:700"><span class="expr">PRB</span></div>';
+      html += '<div class="display-line" style="font-size:12px"><span class="expr">1: nPr &nbsp; 2: nCr</span></div>';
+      html += '<div class="display-line" style="font-size:12px"><span class="expr">3: ! &nbsp;&nbsp; 4: rand</span></div>';
+      html += '<div class="display-line" style="font-size:12px"><span class="expr">5: randint(</span></div>';
+      dbody.innerHTML = html;
+      this.updateIndicators();
+      return;
+    }
+
+    // Angle menu
+    if (this.angleMenu) {
+      html += '<div class="display-line" style="font-size:11px;font-weight:700"><span class="expr">ANGLE</span></div>';
+      const items = [
+        '1:DEG'+(this.angleMode==='DEG'?'✓':''),
+        '2:RAD'+(this.angleMode==='RAD'?'✓':''),
+        '3:GRAD'+(this.angleMode==='GRAD'?'✓':''),
+        '4:°  5:\'  6:"  7:r',
+        '8:DMS  9:R▸P  0:P▸R',
+      ];
+      items.forEach(t => {
+        html += '<div class="display-line" style="font-size:11px"><span class="expr">' + t + '</span></div>';
+      });
+      dbody.innerHTML = html;
+      this.updateIndicators();
+      return;
+    }
+
+    // Stat setup (choosing data/freq lists)
+    if (this.statSetup) {
+      const s = this.statSetup;
+      html += '<div class="display-line" style="font-size:11px;font-weight:700"><span class="expr">' +
+        (s.type==='1var'?'1-Var':'2-Var') + ' Stats Setup (◀▶)</span></div>';
+      if (s.type === '1var') {
+        html += '<div class="display-line" style="font-size:12px;' + (s.step===0?'font-weight:700':'') + '"><span class="expr">Data: ' + s.dataList + '</span></div>';
+        html += '<div class="display-line" style="font-size:12px;' + (s.step===1?'font-weight:700':'') + '"><span class="expr">Freq: ' + s.freqList + '</span></div>';
+      } else {
+        html += '<div class="display-line" style="font-size:12px;' + (s.step===0?'font-weight:700':'') + '"><span class="expr">X data: ' + s.dataList + '</span></div>';
+        html += '<div class="display-line" style="font-size:12px;' + (s.step===1?'font-weight:700':'') + '"><span class="expr">Y data: ' + s.yList + '</span></div>';
+        html += '<div class="display-line" style="font-size:12px;' + (s.step===2?'font-weight:700':'') + '"><span class="expr">Freq: ' + s.freqList + '</span></div>';
+      }
+      dbody.innerHTML = html;
+      this.updateIndicators();
+      return;
+    }
+
+    // Stat menu
+    if (this.statMenu) {
+      html += '<div class="display-line" style="font-size:12px;font-weight:700"><span class="expr">STATS</span></div>';
+      html += '<div class="display-line" style="font-size:12px"><span class="expr">1: 1-Var Stats</span></div>';
+      html += '<div class="display-line" style="font-size:12px"><span class="expr">2: 2-Var Stats</span></div>';
+      dbody.innerHTML = html;
+      this.updateIndicators();
+      return;
+    }
+
+    // Stat results display
+    if (this.statResult) {
+      const s = this.statResult;
+      const start = s.scroll || 0;
+      const title = s.lines.length > 11 ? '2-Var Stats' : '1-Var Stats';
+      html += '<div class="display-line" style="font-size:11px;font-weight:700"><span class="expr">' + title + ' (▲▼ scroll)</span></div>';
+      for (let i = start; i < Math.min(start + 3, s.lines.length); i++) {
+        html += '<div class="display-line" style="font-size:13px"><span class="expr">' + s.lines[i] + '</span></div>';
+      }
+      dbody.innerHTML = html;
+      this.updateIndicators();
+      return;
+    }
+
+    // Table display
+    if (this.tableMode) {
+      if (this.tablePhase === 'expr') {
+        html += '<div class="display-line" style="font-size:11px;font-weight:700"><span class="expr">f(x)=</span></div>';
+        html += '<div class="display-line"><span class="expr">' + this.tableInput + '<span class="cursor">▌</span></span></div>';
+        html += '<div class="display-line" style="font-size:10px;opacity:0.6"><span class="expr">Enter function, press enter</span></div>';
+      } else if (this.tablePhase === 'setup') {
+        html += '<div class="display-line" style="font-size:11px;font-weight:700"><span class="expr">f(x)=' + this.tableExpr + '</span></div>';
+        const fields = [
+          'Source: ' + this.tableSource,
+          'Start: ' + (this._setupField===1 ? this.tableInput+'▌' : this.tableStart),
+          'Step: ' + (this._setupField===2 ? this.tableInput+'▌' : this.tableStep),
+        ];
+        for (let i = 0; i < 3; i++) {
+          const active = i === this._setupField;
+          html += '<div class="display-line" style="font-size:12px;' + (active?'font-weight:700':'') + '"><span class="expr">' + fields[i] + '</span></div>';
+        }
+      } else if (this.tablePhase === 'view') {
+        html += '<div class="display-line" style="font-size:10px;font-weight:700">' +
+          '<span class="expr" style="width:45%">x</span>' +
+          '<span class="result" style="width:55%">f(x)</span></div>';
+        const vs = this.tableValues;
+        const sc = Math.max(0, Math.min(this.tableScroll, vs.length - 3));
+        for (let i = sc; i < Math.min(sc + 3, vs.length); i++) {
+          const v = vs[i];
+          html += '<div class="display-line" style="font-size:12px">' +
+            '<span class="expr" style="width:45%">' + formatResult(v.x) + '</span>' +
+            '<span class="result" style="width:55%">' + (isNaN(v.y) ? 'ERR' : formatResult(v.y)) + '</span></div>';
+        }
+      }
+      dbody.innerHTML = html;
+      this.updateIndicators();
+      return;
+    }
+
+    // Data editor display (spreadsheet: all 3 columns)
+    if (this.dataMode) {
+      const L = this.dataLists;
+      const maxLen = Math.max(L.L1.length, L.L2.length, L.L3.length, this.dataRow + 1);
+      // Header
+      html += '<div class="display-line" style="font-size:10px;font-weight:700">' +
+        '<span style="width:12%;text-align:center"></span>' +
+        '<span style="width:29%;text-align:center;' + (this.dataCol===0?'text-decoration:underline':'') + '">L1</span>' +
+        '<span style="width:29%;text-align:center;' + (this.dataCol===1?'text-decoration:underline':'') + '">L2</span>' +
+        '<span style="width:29%;text-align:center;' + (this.dataCol===2?'text-decoration:underline':'') + '">L3</span>' +
+        '</div>';
+      // Adjust scroll
+      if (this.dataRow < this.dataScroll) this.dataScroll = this.dataRow;
+      if (this.dataRow >= this.dataScroll + 3) this.dataScroll = this.dataRow - 2;
+      for (let r = this.dataScroll; r < this.dataScroll + 3; r++) {
+        const lists = [L.L1, L.L2, L.L3];
+        let row = '<span style="width:12%;font-size:9px;text-align:center">' + (r+1) + '</span>';
+        for (let c = 0; c < 3; c++) {
+          const isCur = r === this.dataRow && c === this.dataCol;
+          const val = r < lists[c].length ? lists[c][r] : '';
+          const display = isCur ? (this.dataInput + '<span class="cursor">▌</span>') : (val === '' ? '' : formatResult(val));
+          row += '<span style="width:29%;text-align:center;font-size:11px;' + (isCur?'font-weight:700;background:rgba(0,0,0,0.1)':'') + '">' + display + '</span>';
+        }
+        html += '<div class="display-line" style="font-size:12px;display:flex;align-items:center">' + row + '</div>';
+      }
+      dbody.innerHTML = html;
+      this.updateIndicators();
+      return;
+    }
+
+    // Normal calculator display
+    // Show last 3 history entries
+    const start = Math.max(0, this.history.length - 3);
+    for (let i = start; i < this.history.length; i++) {
+      const h = this.history[i];
+      html += '<div class="display-line"><span class="expr">' +
+        renderTokens(h.tokens) + '</span><span class="result">' +
+        h.resultHTML + '</span></div>';
+    }
+    // Current input or error
+    if (this.error) {
+      html += '<div class="display-line error">' + this.error + '</div>';
+    } else if (!this.justEvaluated || this.tokens.length > 0) {
+      html += '<div class="display-line"><span class="expr">' +
+        renderTokens(this.tokens) + '<span class="cursor">▌</span></span></div>';
+    }
+    dbody.innerHTML = html;
+    this.updateIndicators();
+  },
+
+  updateIndicators() {
+    document.getElementById('ind-2nd').className = this.secondActive ? 'active' : '';
+    document.getElementById('ind-deg').textContent = this.angleMode;
+    document.getElementById('ind-deg').className = 'active';
+    document.getElementById('calc').className = this.secondActive ? 'second-on' : '';
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// Expression Rendering (tokens → HTML)
+// ═══════════════════════════════════════════════════════════════
+
+function renderTokens(tokens) {
+  let html = '';
+  let i = 0;
+  while (i < tokens.length) {
+    const t = tokens[i];
+    switch (t.type) {
+      case 'digit': html += t.value; break;
+      case 'decimal': html += '.'; break;
+      case 'op': html += t.value; break;
+      case 'neg': html += '<span style="font-size:0.85em">(−)</span>'; break;
+      case 'func': html += '<span class="func-name">' + t.value + '</span>'; break;
+      case 'lparen': html += '('; break;
+      case 'rparen': html += ')'; break;
+      case 'const': html += t.value; break;
+      case 'square': html += '<sup>2</sup>'; break;
+      case 'inverse': html += '<sup>−1</sup>'; break;
+      case 'percent': html += '%'; break;
+      case 'comma': html += ','; break;
+      case 'sto_arrow': html += '→'; break;
+      case 'op_nPr': html += ' nPr '; break;
+      case 'op_nCr': html += ' nCr '; break;
+      case 'factorial': html += '!'; break;
+      case 'x10n': html += '×10'; break;
+      case 'mixed_start': break; // rendered as space before fraction
+      case 'frac_start': {
+        const r = parseFracRange(tokens, i);
+        html += renderFracHTML(
+          renderTokens(tokens.slice(r.numStart, r.numEnd)),
+          renderTokens(tokens.slice(r.denStart, r.denEnd)),
+          true
+        );
+        i = r.end; continue;
+      }
+      case 'sup_start': {
+        const r = parseStructRange(tokens, i, 'sup_start', 'sup_end');
+        html += '<sup class="expo">' + renderTokens(tokens.slice(i+1, r.innerEnd)) + '</sup>';
+        i = r.end; continue;
+      }
+      case 'sqrt_start': {
+        const r = parseStructRange(tokens, i, 'sqrt_start', 'sqrt_end');
+        html += '<span class="msqrt"><span class="msqrt-sym">√</span><span class="msqrt-body">' +
+          renderTokens(tokens.slice(i+1, r.innerEnd)) + '</span></span>';
+        i = r.end; continue;
+      }
+      case 'nroot_start': {
+        const r = parseNrootRange(tokens, i);
+        html += '<span class="msqrt"><sup class="nroot-idx">' +
+          renderTokens(tokens.slice(r.idxStart, r.idxEnd)) + '</sup>' +
+          '<span class="msqrt-sym">√</span><span class="msqrt-body">' +
+          renderTokens(tokens.slice(r.radStart, r.radEnd)) + '</span></span>';
+        i = r.end; continue;
+      }
+      // Skip unmatched structural tokens
+      case 'frac_sep': case 'frac_end': case 'sup_end':
+      case 'sqrt_end': case 'nroot_sep': case 'nroot_end': break;
+    }
+    i++;
+  }
+  return html;
+}
+
+function renderFracHTML(num, den, isHTML) {
+  if (isHTML) {
+    return '<span class="mfrac"><span class="mfrac-num">' + num +
+      '</span><span class="mfrac-den">' + den + '</span></span>';
+  }
+  return '<span class="mfrac"><span class="mfrac-num">' + num +
+    '</span><span class="mfrac-den">' + den + '</span></span>';
+}
+
+// Range finders for rendering (find matching end markers)
+function parseFracRange(tokens, start) {
+  let i = start + 1, depth = 1, numStart = i, numEnd = i, denStart = i, denEnd = i;
+  let inNum = true;
+  while (i < tokens.length && depth > 0) {
+    if (tokens[i].type === 'frac_start') depth++;
+    if (tokens[i].type === 'frac_end') { depth--; if (depth === 0) break; }
+    if (tokens[i].type === 'frac_sep' && depth === 1 && inNum) {
+      numEnd = i; denStart = i + 1; inNum = false;
+    }
+    i++;
+  }
+  denEnd = i;
+  if (inNum) { numEnd = i; denStart = i; denEnd = i; }
+  return { numStart, numEnd, denStart, denEnd, end: i + 1 };
+}
+
+function parseStructRange(tokens, start, openType, closeType) {
+  let i = start + 1, depth = 1;
+  while (i < tokens.length && depth > 0) {
+    if (tokens[i].type === openType) depth++;
+    if (tokens[i].type === closeType) { depth--; if (depth === 0) break; }
+    i++;
+  }
+  return { innerEnd: i, end: i + 1 };
+}
+
+function parseNrootRange(tokens, start) {
+  let i = start + 1;
+  let idxStart = i, idxEnd = i, radStart = i, radEnd = i;
+  let depth = 1;
+  let pastSep = false;
+  while (i < tokens.length && depth > 0) {
+    if (tokens[i].type === 'nroot_start') depth++;
+    if (tokens[i].type === 'nroot_end') { depth--; if (depth === 0) break; }
+    if (tokens[i].type === 'nroot_sep' && depth === 1 && !pastSep) {
+      idxEnd = i; radStart = i + 1; pastSep = true;
+    }
+    i++;
+  }
+  radEnd = i;
+  if (!pastSep) { idxEnd = i; radStart = i; radEnd = i; }
+  return { idxStart, idxEnd, radStart, radEnd, end: i + 1 };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Preprocessing (raw tokens → evaluable tokens)
+// ═══════════════════════════════════════════════════════════════
+
+function preprocess(rawTokens, ans) {
+  let tokens = [];
+  let i = 0;
+  while (i < rawTokens.length) {
+    const t = rawTokens[i];
+    // Consolidate digits into numbers
+    if (t.type === 'digit' || t.type === 'decimal') {
+      let numStr = '';
+      while (i < rawTokens.length && (rawTokens[i].type === 'digit' || rawTokens[i].type === 'decimal')) {
+        numStr += rawTokens[i].value; i++;
+      }
+      tokens.push({type:'number',value:numStr});
+      continue;
+    }
+    // Constants & variables
+    if (t.type === 'const') {
+      if (t.value === 'π') tokens.push({type:'number',value:String(Math.PI)});
+      else if (t.value === 'Ans') tokens.push({type:'number',value:String(ans)});
+      else if (t.value === 'rand') tokens.push({type:'number',value:String(Math.random())});
+      else if (C.variables.hasOwnProperty(t.value)) tokens.push({type:'number',value:String(C.variables[t.value]||0)});
+      else tokens.push(t);
+      i++; continue;
+    }
+    // x10n → ×10
+    if (t.type === 'x10n') {
+      tokens.push({type:'op',value:'×'});
+      tokens.push({type:'number',value:'10'});
+      i++; continue;
+    }
+    // mixed_start → +
+    if (t.type === 'mixed_start') {
+      tokens.push({type:'op',value:'+'});
+      i++; continue;
+    }
+    // Pass through operators, commas, and other token types
+    if (t.type === 'op' || t.type === 'comma') {
+      tokens.push(t); i++; continue;
+    }
+    tokens.push(t); i++;
+  }
+  // Insert implicit multiplication
+  return insertImplicitMul(tokens);
+}
+
+function insertImplicitMul(tokens) {
+  const result = [];
+  for (let i = 0; i < tokens.length; i++) {
+    result.push(tokens[i]);
+    if (i < tokens.length - 1 && shouldImplicitMul(tokens[i], tokens[i+1])) {
+      result.push({type:'op',value:'×'});
+    }
+  }
+  return result;
+}
+
+function shouldImplicitMul(a, b) {
+  const aVal = ['number','rparen','square','inverse','percent','frac_end','sup_end','sqrt_end','nroot_end'].includes(a.type);
+  const bVal = ['number','func','lparen','frac_start','sqrt_start','nroot_start','neg'].includes(b.type);
+  return aVal && bVal;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Recursive Descent Parser
+// ═══════════════════════════════════════════════════════════════
+
+function parse(tokens, angleMode) {
+  const p = new Parser(tokens, angleMode);
+  const result = p.parseExpr();
+  return result;
+}
+
+class Parser {
+  constructor(tokens, angleMode) { this.t = tokens; this.p = 0; this.am = angleMode; }
+  peek() { return this.p < this.t.length ? this.t[this.p] : null; }
+  consume() { return this.t[this.p++]; }
+
+  parseExpr() {
+    let left = this.parseTerm();
+    while (this.peek() && this.peek().type === 'op' && (this.peek().value === '+' || this.peek().value === '−')) {
+      const op = this.consume().value;
+      const right = this.parseTerm();
+      left = op === '+' ? left + right : left - right;
+    }
+    return left;
+  }
+
+  parseTerm() {
+    let left = this.parseNeg();
+    while (this.peek()) {
+      const tk = this.peek();
+      if (tk.type === 'op' && (tk.value === '×' || tk.value === '÷')) {
+        this.consume();
+        const right = this.parseNeg();
+        left = tk.value === '×' ? left * right : left / right;
+      } else break;
+    }
+    return left;
+  }
+
+  parseNeg() {
+    if (this.peek() && this.peek().type === 'neg') {
+      this.consume();
+      return -this.parsePower();
+    }
+    return this.parsePower();
+  }
+
+  parsePower() {
+    let base = this.parsePostfix();
+    if (this.peek() && this.peek().type === 'sup_start') {
+      this.consume(); // sup_start
+      const expToks = this.collectUntil('sup_end');
+      const exp = parse(expToks, this.am);
+      base = Math.pow(base, exp);
+    }
+    return base;
+  }
+
+  parsePostfix() {
+    let val = this.parseAtom();
+    while (this.peek()) {
+      const tk = this.peek();
+      if (tk.type === 'square') { this.consume(); val = val * val; }
+      else if (tk.type === 'inverse') { this.consume(); val = 1 / val; }
+      else if (tk.type === 'percent') { this.consume(); val = val / 100; }
+      else if (tk.type === 'factorial') { this.consume(); val = factorial(val); }
+      else if (tk.type === 'op_nPr') { this.consume(); const r = this.parseNeg(); val = nPr(val, r); }
+      else if (tk.type === 'op_nCr') { this.consume(); const r2 = this.parseNeg(); val = nCr(val, r2); }
+      else break;
+    }
+    return val;
+  }
+
+  parseAtom() {
+    const tk = this.peek();
+    if (!tk) throw new Error('SYNTAX ERROR');
+
+    if (tk.type === 'number') { this.consume(); return parseFloat(tk.value); }
+
+    if (tk.type === 'func') {
+      const name = this.consume().value;
+      if (this.peek() && this.peek().type === 'lparen') this.consume();
+      const arg = this.parseExpr();
+      if (this.peek() && this.peek().type === 'rparen') this.consume();
+      return this.evalFunc(name, arg);
+    }
+
+    if (tk.type === 'lparen') {
+      this.consume();
+      const val = this.parseExpr();
+      if (this.peek() && this.peek().type === 'rparen') this.consume();
+      return val;
+    }
+
+    if (tk.type === 'frac_start') {
+      this.consume();
+      const numToks = this.collectFracPart();
+      const denToks = this.collectUntil('frac_end');
+      const num = parse(numToks, this.am);
+      const den = parse(denToks, this.am);
+      if (den === 0) throw new Error('DIVIDE BY 0');
+      return num / den;
+    }
+
+    if (tk.type === 'sqrt_start') {
+      this.consume();
+      const innerToks = this.collectUntil('sqrt_end');
+      const inner = parse(innerToks, this.am);
+      if (inner < 0) throw new Error('DOMAIN');
+      return Math.sqrt(inner);
+    }
+
+    if (tk.type === 'nroot_start') {
+      this.consume();
+      const idxToks = this.collectNrootIndex();
+      const radToks = this.collectUntil('nroot_end');
+      const idx = parse(idxToks, this.am);
+      const rad = parse(radToks, this.am);
+      if (idx === 0) throw new Error('DOMAIN');
+      if (rad < 0 && idx % 2 === 0) throw new Error('DOMAIN');
+      if (rad < 0) return -Math.pow(-rad, 1/idx);
+      return Math.pow(rad, 1/idx);
+    }
+
+    if (tk.type === 'neg') {
+      this.consume();
+      return -this.parseAtom();
+    }
+
+    throw new Error('SYNTAX ERROR');
+  }
+
+  collectUntil(endType) {
+    const toks = []; let depth = 1;
+    while (this.p < this.t.length && depth > 0) {
+      const tk = this.t[this.p];
+      if (tk.type === endType.replace('_end','_start')) depth++;
+      if (tk.type === endType) { depth--; if (depth === 0) { this.p++; break; } }
+      toks.push(tk); this.p++;
+    }
+    return toks;
+  }
+
+  collectFracPart() {
+    const toks = []; let depth = 1;
+    while (this.p < this.t.length) {
+      const tk = this.t[this.p];
+      if (tk.type === 'frac_start') depth++;
+      if (tk.type === 'frac_end') { depth--; if (depth === 0) break; }
+      if (tk.type === 'frac_sep' && depth === 1) { this.p++; break; }
+      toks.push(tk); this.p++;
+    }
+    return toks;
+  }
+
+  collectNrootIndex() {
+    const toks = [];
+    while (this.p < this.t.length) {
+      if (this.t[this.p].type === 'nroot_sep') { this.p++; break; }
+      toks.push(this.t[this.p]); this.p++;
+    }
+    return toks;
+  }
+
+  evalFunc(name, arg) {
+    const tr = v => { if(this.am==='DEG')return v*Math.PI/180;if(this.am==='GRAD')return v*Math.PI/200;return v; };
+    const fr = v => { if(this.am==='DEG')return v*180/Math.PI;if(this.am==='GRAD')return v*200/Math.PI;return v; };
+    switch (name) {
+      case 'sin': return Math.sin(tr(arg));
+      case 'cos': return Math.cos(tr(arg));
+      case 'tan': { const r=tr(arg); if(Math.abs(Math.cos(r))<1e-14)throw new Error('DOMAIN'); return Math.tan(r); }
+      case 'sin⁻¹': if(Math.abs(arg)>1)throw new Error('DOMAIN'); return fr(Math.asin(arg));
+      case 'cos⁻¹': if(Math.abs(arg)>1)throw new Error('DOMAIN'); return fr(Math.acos(arg));
+      case 'tan⁻¹': return fr(Math.atan(arg));
+      case 'log': if(arg<=0)throw new Error('DOMAIN'); return Math.log10(arg);
+      case 'ln': if(arg<=0)throw new Error('DOMAIN'); return Math.log(arg);
+      case '10^': return Math.pow(10, arg);
+      case 'e^': return Math.exp(arg);
+      case 'randint': {
+        const low = Math.ceil(arg);
+        let high = low;
+        if (this.peek() && this.peek().type === 'comma') {
+          this.consume();
+          high = Math.floor(this.parseExpr());
+        }
+        return Math.floor(Math.random() * (high - low + 1)) + low;
+      }
+      case '▸DMS': {
+        // Convert decimal degrees to DMS (returns as decimal d.mmss)
+        const d = Math.floor(Math.abs(arg));
+        const mf = (Math.abs(arg) - d) * 60;
+        const m = Math.floor(mf);
+        const s = (mf - m) * 60;
+        return (arg < 0 ? -1 : 1) * (d + m/100 + s/10000);
+      }
+      case 'R▸P': {
+        // Rectangular to Polar: arg=x, next comma y
+        const x = arg;
+        let y = 0;
+        if (this.peek() && this.peek().type === 'comma') { this.consume(); y = this.parseExpr(); }
+        const r = Math.sqrt(x*x + y*y);
+        const theta = fr(Math.atan2(y, x));
+        C.ans = r; C.variables.t = theta;
+        return r;
+      }
+      case 'P▸R': {
+        // Polar to Rectangular: arg=r, next comma θ
+        const rv = arg;
+        let th = 0;
+        if (this.peek() && this.peek().type === 'comma') { this.consume(); th = this.parseExpr(); }
+        const xv = rv * Math.cos(tr(th));
+        const yv = rv * Math.sin(tr(th));
+        C.ans = xv; C.variables.y = yv;
+        return xv;
+      }
+      default: throw new Error('SYNTAX ERROR');
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Result Formatting
+// ═══════════════════════════════════════════════════════════════
+
+function formatResult(value) {
+  if (value === undefined || value === null || isNaN(value)) return 'Error';
+  if (!isFinite(value)) return 'OVERFLOW';
+  if (value === 0) return '0';
+  // Integer check
+  if (Number.isInteger(value) && Math.abs(value) < 1e10) return String(value);
+  // Try reasonable precision
+  let s = toPrecisionTrimmed(value, 10);
+  if (s.length <= 13) return s;
+  // Scientific notation
+  return value.toExponential(6);
+}
+
+function toPrecisionTrimmed(v, prec) {
+  let s = v.toPrecision(prec);
+  if (s.includes('.') && !s.includes('e') && !s.includes('E')) {
+    s = s.replace(/0+$/, '').replace(/\.$/, '');
+  }
+  return s;
+}
+
+function factorial(n) {
+  n = Math.round(n);
+  if (n < 0 || n > 69) throw new Error('DOMAIN');
+  if (n === 0 || n === 1) return 1;
+  let r = 1;
+  for (let i = 2; i <= n; i++) r *= i;
+  return r;
+}
+
+function nPr(n, r) {
+  n = Math.round(n); r = Math.round(r);
+  if (n < 0 || r < 0 || r > n) throw new Error('DOMAIN');
+  return factorial(n) / factorial(n - r);
+}
+
+function nCr(n, r) {
+  n = Math.round(n); r = Math.round(r);
+  if (n < 0 || r < 0 || r > n) throw new Error('DOMAIN');
+  return factorial(n) / (factorial(r) * factorial(n - r));
+}
+
+function toFraction(decimal) {
+  if (!isFinite(decimal) || isNaN(decimal)) return null;
+  const sign = decimal < 0 ? -1 : 1;
+  let d = Math.abs(decimal);
+  const tol = 1e-9;
+  let h1=1,h2=0,k1=0,k2=1,b=d;
+  for (let iter = 0; iter < 100; iter++) {
+    const a = Math.floor(b);
+    let tmp = h1; h1 = a*h1+h2; h2 = tmp;
+    tmp = k1; k1 = a*k1+k2; k2 = tmp;
+    if (Math.abs(d - h1/k1) <= d * tol) break;
+    if (b - a < 1e-14) break;
+    b = 1/(b-a);
+    if (k1 > 9999) break;
+  }
+  if (k1 > 9999 || k1 <= 0) return null;
+  return { num: sign * h1, den: k1 };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Keyboard Support
+// ═══════════════════════════════════════════════════════════════
+
+document.addEventListener('keydown', e => {
+  const k = e.key;
+  if (k >= '0' && k <= '9') C.pressKey(k);
+  else if (k === '.') C.pressKey('dot');
+  else if (k === '+') C.pressKey('add');
+  else if (k === '-') C.pressKey('subtract');
+  else if (k === '*') C.pressKey('multiply');
+  else if (k === '/') { e.preventDefault(); C.pressKey('divide'); }
+  else if (k === '(') C.pressKey('lparen');
+  else if (k === ')') C.pressKey('rparen');
+  else if (k === '^') C.pressKey('power');
+  else if (k === 'Enter') C.pressKey('enter');
+  else if (k === 'Backspace') { e.preventDefault(); C.pressKey('delete'); }
+  else if (k === 'Escape') C.pressKey('clear');
+  else if (k === 'ArrowUp') C.pressKey('up');
+  else if (k === 'ArrowDown') C.pressKey('down');
+  else if (k === 'ArrowLeft') C.pressKey('left');
+  else if (k === 'ArrowRight') C.pressKey('right');
+  else if (k === 's') C.pressKey('sin');
+  else if (k === 'c') C.pressKey('cos');
+  else if (k === 't') C.pressKey('tan');
+  else if (k === 'l') C.pressKey('log');
+  else if (k === 'n') C.pressKey('ln');
+  else if (k === 'p') C.pressKey('pi');
+});
+
+// ── Init ──
+C.render();
+
+// ═══════════════════════════════════════════════════════════════
+// Test API (exposed for automated testing)
+// ═══════════════════════════════════════════════════════════════
+
+window.TI30XS = {
+  calc: C,
+  preprocess,
+  parse,
+  Parser,
+  formatResult,
+  toFraction,
+  renderTokens,
+  pressKeys(keys) {
+    keys.forEach(k => C.pressKey(k));
+  },
+  reset() {
+    C.clearAll();
+    C.render();
+  },
+  getDisplay() {
+    return document.getElementById('dbody').textContent;
+  },
+  getLastResult() {
+    if (C.history.length === 0) return null;
+    return C.history[C.history.length - 1].resultValue;
+  }
+};
+</script>
+</body>
+</html>

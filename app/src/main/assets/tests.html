@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TI-30XS MultiView — Tests</title>
+<style>
+body{font-family:monospace;padding:20px;background:#1a1a2e;color:#ddd;font-size:14px}
+h1{color:#88c;margin-bottom:10px}
+h2{color:#8ac;margin-top:20px;margin-bottom:6px;border-bottom:1px solid #334;padding-bottom:4px}
+.pass{color:#4c4}.fail{color:#f44;font-weight:bold}
+.summary{margin-top:20px;padding:10px;border-radius:4px;font-size:16px;font-weight:bold}
+.summary.all-pass{background:#142;color:#4c4}
+.summary.has-fail{background:#411;color:#f44}
+.test{margin:2px 0}
+</style>
+</head>
+<body>
+<h1>TI-30XS MultiView — Test Suite</h1>
+<div id="output"></div>
+
+<!-- Load the calculator in a hidden iframe -->
+<iframe id="calcFrame" src="index.html" style="width:0;height:0;border:0;position:absolute;left:-9999px"></iframe>
+
+<script>
+const output = document.getElementById('output');
+let totalPass = 0, totalFail = 0;
+
+function log(msg, cls) {
+  const div = document.createElement('div');
+  div.className = 'test ' + (cls||'');
+  div.textContent = msg;
+  output.appendChild(div);
+}
+
+function section(title) {
+  const h = document.createElement('h2');
+  h.textContent = title;
+  output.appendChild(h);
+}
+
+function assert(name, actual, expected, tolerance) {
+  if (tolerance !== undefined) {
+    if (typeof actual === 'number' && typeof expected === 'number' && Math.abs(actual - expected) <= tolerance) {
+      log(`✓ ${name}: ${actual}`, 'pass'); totalPass++; return;
+    }
+  } else if (actual === expected) {
+    log(`✓ ${name}: ${actual}`, 'pass'); totalPass++; return;
+  }
+  log(`✗ ${name}: expected ${expected}, got ${actual}`, 'fail'); totalFail++;
+}
+
+const frame = document.getElementById('calcFrame');
+frame.addEventListener('load', () => {
+  const W = frame.contentWindow;
+  const TI = W.TI30XS;
+
+  // ═══════════════════════════════════════════════════
+  // UNIT TESTS — Expression Parser
+  // ═══════════════════════════════════════════════════
+
+  section('Unit: Basic Arithmetic');
+  function evalExpr(tokenSets) {
+    const raw = tokenSets;
+    const preprocessed = TI.preprocess(raw, 0);
+    return TI.parse(preprocessed, 'DEG');
+  }
+
+  // Helper to make tokens quickly
+  function num(v) { return [{type:'digit',value:String(v)}]; }
+  function digits(s) { return s.split('').map(c => c === '.' ? {type:'decimal',value:'.'} : {type:'digit',value:c}); }
+  function op(v) { return {type:'op',value:v}; }
+
+  // 3 + 4 = 7
+  assert('3 + 4', evalExpr([...digits('3'), op('+'), ...digits('4')]), 7);
+  // 10 - 3 = 7
+  assert('10 - 3', evalExpr([...digits('10'), op('−'), ...digits('3')]), 7);
+  // 6 × 7 = 42
+  assert('6 × 7', evalExpr([...digits('6'), op('×'), ...digits('7')]), 42);
+  // 15 ÷ 3 = 5
+  assert('15 ÷ 3', evalExpr([...digits('15'), op('÷'), ...digits('3')]), 5);
+  // 2.5 + 1.5 = 4
+  assert('2.5 + 1.5', evalExpr([...digits('2.5'), op('+'), ...digits('1.5')]), 4);
+
+  section('Unit: Order of Operations');
+  // 2 + 3 × 4 = 14
+  assert('2 + 3 × 4', evalExpr([...digits('2'), op('+'), ...digits('3'), op('×'), ...digits('4')]), 14);
+  // (2 + 3) × 4 = 20
+  assert('(2+3) × 4', evalExpr([{type:'lparen'}, ...digits('2'), op('+'), ...digits('3'), {type:'rparen'}, op('×'), ...digits('4')]), 20);
+  // 10 - 2 × 3 = 4
+  assert('10 - 2 × 3', evalExpr([...digits('10'), op('−'), ...digits('2'), op('×'), ...digits('3')]), 4);
+  // 2 + 6 ÷ 3 = 4
+  assert('2 + 6 ÷ 3', evalExpr([...digits('2'), op('+'), ...digits('6'), op('÷'), ...digits('3')]), 4);
+
+  section('Unit: Negation');
+  // (−)5 = -5
+  assert('(−)5', evalExpr([{type:'neg'}, ...digits('5')]), -5);
+  // 3 × (−)2 = -6
+  assert('3 × (−)2', evalExpr([...digits('3'), op('×'), {type:'neg'}, ...digits('2')]), -6);
+  // (−)3² = -9 (negation lower precedence than postfix square)
+  assert('(−)3² = -9', evalExpr([{type:'neg'}, ...digits('3'), {type:'square'}]), -9);
+
+  section('Unit: Powers & Roots');
+  // 2^5 = 32
+  assert('2^5', evalExpr([...digits('2'), {type:'sup_start'}, ...digits('5'), {type:'sup_end'}]), 32);
+  // 3² = 9
+  assert('3²', evalExpr([...digits('3'), {type:'square'}]), 9);
+  // √49 = 7
+  assert('√49', evalExpr([{type:'sqrt_start'}, ...digits('49'), {type:'sqrt_end'}]), 7);
+  // 3√27 = 3 (cube root)
+  assert('³√27', evalExpr([{type:'nroot_start'}, ...digits('3'), {type:'nroot_sep'}, ...digits('27'), {type:'nroot_end'}]), 3);
+  // 2⁻¹ = 0.5
+  assert('2⁻¹', evalExpr([...digits('2'), {type:'inverse'}]), 0.5);
+  // 5^2+4 = 5^(2+4) ... actually 5^2 + 4 with sup: 5 sup(2) + 4
+  // Actually, we want: 5^(2) + 4 = 25 + 4 = 29
+  assert('5^2 + 4', evalExpr([...digits('5'), {type:'sup_start'}, ...digits('2'), {type:'sup_end'}, op('+'), ...digits('4')]), 29);
+
+  section('Unit: Fractions');
+  // 3/4 = 0.75
+  assert('3/4', evalExpr([{type:'frac_start'}, ...digits('3'), {type:'frac_sep'}, ...digits('4'), {type:'frac_end'}]), 0.75);
+  // 1 + 3/4 = 1.75 (using mixed_start)
+  assert('1 3/4 (mixed)', evalExpr([...digits('1'), {type:'mixed_start'}, {type:'frac_start'}, ...digits('3'), {type:'frac_sep'}, ...digits('4'), {type:'frac_end'}]), 1.75);
+  // 1/2 + 1/3 = 5/6
+  assert('1/2 + 1/3', evalExpr([
+    {type:'frac_start'}, ...digits('1'), {type:'frac_sep'}, ...digits('2'), {type:'frac_end'},
+    op('+'),
+    {type:'frac_start'}, ...digits('1'), {type:'frac_sep'}, ...digits('3'), {type:'frac_end'},
+  ]), 5/6, 1e-10);
+
+  section('Unit: Trig (DEG mode)');
+  assert('sin(30)', evalExpr([{type:'func',value:'sin'}, {type:'lparen'}, ...digits('30'), {type:'rparen'}]), 0.5, 1e-10);
+  assert('cos(60)', evalExpr([{type:'func',value:'cos'}, {type:'lparen'}, ...digits('60'), {type:'rparen'}]), 0.5, 1e-10);
+  assert('tan(45)', evalExpr([{type:'func',value:'tan'}, {type:'lparen'}, ...digits('45'), {type:'rparen'}]), 1, 1e-10);
+  assert('sin⁻¹(1)', evalExpr([{type:'func',value:'sin⁻¹'}, {type:'lparen'}, ...digits('1'), {type:'rparen'}]), 90, 1e-10);
+  assert('cos⁻¹(0.5)', evalExpr([{type:'func',value:'cos⁻¹'}, {type:'lparen'}, ...digits('0.5'), {type:'rparen'}]), 60, 1e-10);
+  assert('tan⁻¹(1)', evalExpr([{type:'func',value:'tan⁻¹'}, {type:'lparen'}, ...digits('1'), {type:'rparen'}]), 45, 1e-10);
+
+  section('Unit: Trig (RAD mode)');
+  function evalRad(toks) { const pp = TI.preprocess(toks,0); return TI.parse(pp,'RAD'); }
+  assert('sin(π/6) RAD', evalRad([{type:'func',value:'sin'}, {type:'lparen'}, {type:'const',value:'π'}, op('÷'), ...digits('6'), {type:'rparen'}]), 0.5, 1e-10);
+
+  section('Unit: Logarithms & Exponentials');
+  assert('log(100)', evalExpr([{type:'func',value:'log'}, {type:'lparen'}, ...digits('100'), {type:'rparen'}]), 2, 1e-10);
+  assert('ln(1)', evalExpr([{type:'func',value:'ln'}, {type:'lparen'}, ...digits('1'), {type:'rparen'}]), 0, 1e-10);
+  assert('10^(3)', evalExpr([{type:'func',value:'10^'}, {type:'lparen'}, ...digits('3'), {type:'rparen'}]), 1000);
+  assert('e^(0)', evalExpr([{type:'func',value:'e^'}, {type:'lparen'}, ...digits('0'), {type:'rparen'}]), 1);
+  assert('e^(1)', evalExpr([{type:'func',value:'e^'}, {type:'lparen'}, ...digits('1'), {type:'rparen'}]), Math.E, 1e-10);
+
+  section('Unit: Implicit Multiplication');
+  assert('2π', evalExpr([...digits('2'), {type:'const',value:'π'}]), 2*Math.PI, 1e-10);
+  assert('3sin(30)', evalExpr([...digits('3'), {type:'func',value:'sin'}, {type:'lparen'}, ...digits('30'), {type:'rparen'}]), 1.5, 1e-10);
+  assert('(2)(3)', evalExpr([{type:'lparen'}, ...digits('2'), {type:'rparen'}, {type:'lparen'}, ...digits('3'), {type:'rparen'}]), 6);
+
+  section('Unit: Percentage');
+  assert('20%', evalExpr([...digits('20'), {type:'percent'}]), 0.2);
+  assert('50% × 200', evalExpr([...digits('50'), {type:'percent'}, op('×'), ...digits('200')]), 100);
+
+  section('Unit: Scientific Notation (×10ⁿ)');
+  // 2×10^5 = 200000
+  assert('2×10^5', evalExpr([...digits('2'), {type:'x10n'}, {type:'sup_start'}, ...digits('5'), {type:'sup_end'}]), 200000);
+
+  section('Unit: Constants');
+  assert('π', evalExpr([{type:'const',value:'π'}]), Math.PI, 1e-10);
+
+  section('Unit: formatResult');
+  assert('format 42', TI.formatResult(42), '42');
+  assert('format 0', TI.formatResult(0), '0');
+  assert('format 3.14', TI.formatResult(3.14), '3.14');
+  assert('format -7', TI.formatResult(-7), '-7');
+
+  section('Unit: toFraction');
+  let f = TI.toFraction(0.75);
+  assert('0.75 → 3/4 num', f.num, 3);
+  assert('0.75 → 3/4 den', f.den, 4);
+  f = TI.toFraction(0.333333333);
+  assert('0.333... → 1/3 num', f.num, 1);
+  assert('0.333... → 1/3 den', f.den, 3);
+  f = TI.toFraction(1.5);
+  assert('1.5 → 3/2 num', f.num, 3);
+  assert('1.5 → 3/2 den', f.den, 2);
+
+  // ═══════════════════════════════════════════════════
+  // INTEGRATION TESTS — Button Press Sequences
+  // ═══════════════════════════════════════════════════
+
+  section('Integration: Basic Calculations');
+
+  TI.reset();
+  TI.pressKeys(['3', 'add', '4', 'enter']);
+  assert('Press 3+4= → 7', TI.getLastResult(), 7);
+
+  TI.reset();
+  TI.pressKeys(['1', '0', 'subtract', '3', 'enter']);
+  assert('Press 10-3= → 7', TI.getLastResult(), 7);
+
+  TI.reset();
+  TI.pressKeys(['6', 'multiply', '7', 'enter']);
+  assert('Press 6×7= → 42', TI.getLastResult(), 42);
+
+  TI.reset();
+  TI.pressKeys(['1', '5', 'divide', '3', 'enter']);
+  assert('Press 15÷3= → 5', TI.getLastResult(), 5);
+
+  section('Integration: Order of Operations');
+
+  TI.reset();
+  TI.pressKeys(['2', 'add', '3', 'multiply', '4', 'enter']);
+  assert('2+3×4= → 14', TI.getLastResult(), 14);
+
+  TI.reset();
+  TI.pressKeys(['lparen', '2', 'add', '3', 'rparen', 'multiply', '4', 'enter']);
+  assert('(2+3)×4= → 20', TI.getLastResult(), 20);
+
+  section('Integration: Scientific Functions');
+
+  TI.reset();
+  TI.pressKeys(['sin', '3', '0', 'rparen', 'enter']);
+  assert('sin(30)= → 0.5', Math.abs(TI.getLastResult() - 0.5) < 1e-10, true);
+
+  TI.reset();
+  TI.pressKeys(['cos', '6', '0', 'rparen', 'enter']);
+  assert('cos(60)= → 0.5', Math.abs(TI.getLastResult() - 0.5) < 1e-10, true);
+
+  TI.reset();
+  TI.pressKeys(['tan', '4', '5', 'rparen', 'enter']);
+  assert('tan(45)= → 1', Math.abs(TI.getLastResult() - 1) < 1e-10, true);
+
+  TI.reset();
+  TI.pressKeys(['log', '1', '0', '0', 'rparen', 'enter']);
+  assert('log(100)= → 2', Math.abs(TI.getLastResult() - 2) < 1e-10, true);
+
+  TI.reset();
+  TI.pressKeys(['ln', '1', 'rparen', 'enter']);
+  assert('ln(1)= → 0', TI.getLastResult(), 0);
+
+  section('Integration: Powers & Roots');
+
+  TI.reset();
+  TI.pressKeys(['2', 'power', '5', 'right', 'enter']);
+  assert('2^5= → 32', TI.getLastResult(), 32);
+
+  TI.reset();
+  TI.pressKeys(['5', 'square', 'enter']);
+  assert('5²= → 25', TI.getLastResult(), 25);
+
+  TI.reset();
+  TI.pressKeys(['2nd', 'square', '4', '9', 'right', 'enter']);
+  assert('√49= → 7', TI.getLastResult(), 7);
+
+  TI.reset();
+  TI.pressKeys(['2', 'inv', 'enter']);
+  assert('2⁻¹= → 0.5', TI.getLastResult(), 0.5);
+
+  section('Integration: Fractions');
+
+  TI.reset();
+  TI.pressKeys(['3', 'frac', '4', 'right', 'enter']);
+  assert('3/4= → 0.75', TI.getLastResult(), 0.75);
+
+  TI.reset();
+  TI.pressKeys(['frac', '1', 'down', '2', 'right', 'add', 'frac', '1', 'down', '3', 'right', 'enter']);
+  assert('1/2 + 1/3 ≈ 0.8333', Math.abs(TI.getLastResult() - 5/6) < 1e-10, true);
+
+  section('Integration: Negation & Ans');
+
+  TI.reset();
+  TI.pressKeys(['neg', '5', 'enter']);
+  assert('(−)5= → -5', TI.getLastResult(), -5);
+
+  TI.reset();
+  TI.pressKeys(['3', 'multiply', 'neg', '2', 'enter']);
+  assert('3×(−)2= → -6', TI.getLastResult(), -6);
+
+  // Ans chaining
+  TI.reset();
+  TI.pressKeys(['5', 'enter']);
+  TI.pressKeys(['multiply', '3', 'enter']);
+  assert('5 enter, ×3= → Ans×3=15', TI.getLastResult(), 15);
+
+  section('Integration: 2nd Key Functions');
+
+  TI.reset();
+  TI.pressKeys(['2nd', 'sin', '1', 'rparen', 'enter']);
+  assert('sin⁻¹(1)= → 90', Math.abs(TI.getLastResult() - 90) < 1e-10, true);
+
+  TI.reset();
+  TI.pressKeys(['2nd', 'log', '3', 'rparen', 'enter']);
+  assert('10^(3)= → 1000', TI.getLastResult(), 1000);
+
+  TI.reset();
+  TI.pressKeys(['2nd', 'ln', '0', 'rparen', 'enter']);
+  assert('e^(0)= → 1', TI.getLastResult(), 1);
+
+  section('Integration: Pi');
+
+  TI.reset();
+  TI.pressKeys(['pi', 'enter']);
+  assert('π= → 3.14159...', Math.abs(TI.getLastResult() - Math.PI) < 1e-10, true);
+
+  TI.reset();
+  TI.pressKeys(['2', 'multiply', 'pi', 'enter']);
+  assert('2×π= → 6.2831...', Math.abs(TI.getLastResult() - 2*Math.PI) < 1e-10, true);
+
+  section('Integration: Scientific Notation');
+
+  TI.reset();
+  TI.pressKeys(['2', 'x10n', '5', 'right', 'enter']);
+  assert('2×10⁵= → 200000', TI.getLastResult(), 200000);
+
+  section('Integration: Percentage');
+
+  TI.reset();
+  TI.pressKeys(['2', '0', '2nd', 'lparen', 'multiply', '1', '5', '0', 'enter']);
+  assert('20%×150= → 30', TI.getLastResult(), 30);
+
+  section('Integration: Angle Mode');
+
+  TI.reset();
+  TI.calc.angleMode = 'RAD';
+  TI.pressKeys(['sin', '1', 'rparen', 'enter']);
+  assert('sin(1) RAD ≈ 0.8415', Math.abs(TI.getLastResult() - Math.sin(1)) < 1e-10, true);
+  TI.calc.angleMode = 'DEG'; // reset
+
+  section('Integration: Clear & Delete');
+
+  TI.reset();
+  TI.pressKeys(['1', '2', '3', 'delete', 'enter']);
+  assert('123 delete → 12', TI.getLastResult(), 12);
+
+  TI.reset();
+  TI.pressKeys(['5', 'add', '3', 'clear', '7', 'enter']);
+  assert('5+3 clear 7 → 7', TI.getLastResult(), 7);
+
+  section('Integration: Chained Operations');
+
+  TI.reset();
+  TI.pressKeys(['2', 'power', '3', 'right', 'add', '1', 'enter']);
+  assert('2^3+1= → 9', TI.getLastResult(), 9);
+
+  TI.reset();
+  TI.pressKeys(['2nd', 'square', '2nd', 'square', '2', '5', '6', 'right', 'right', 'enter']);
+  assert('√(√256)= → 4', TI.getLastResult(), 4);
+
+  section('Integration: Complex Expressions');
+
+  TI.reset();
+  TI.pressKeys(['lparen', '3', 'add', '4', 'rparen', 'square', 'enter']);
+  assert('(3+4)²= → 49', TI.getLastResult(), 49);
+
+  TI.reset();
+  TI.pressKeys(['2', 'multiply', 'sin', '3', '0', 'rparen', 'add', '1', 'enter']);
+  assert('2×sin(30)+1= → 2', Math.abs(TI.getLastResult() - 2) < 1e-10, true);
+
+  // ═══════════════════════════════════════════════════
+  // Error handling
+  // ═══════════════════════════════════════════════════
+
+  section('Integration: Error Handling');
+
+  TI.reset();
+  TI.pressKeys(['1', 'divide', '0', 'enter']);
+  assert('1÷0 → error', TI.calc.error !== null, true);
+
+  TI.reset();
+  TI.pressKeys(['2nd', 'sin', '2', 'rparen', 'enter']);
+  assert('sin⁻¹(2) → DOMAIN', TI.calc.error, 'DOMAIN');
+
+  TI.reset();
+  TI.pressKeys(['log', '0', 'rparen', 'enter']);
+  assert('log(0) → DOMAIN', TI.calc.error, 'DOMAIN');
+
+  TI.reset();
+  TI.pressKeys(['ln', 'neg', '1', 'rparen', 'enter']);
+  assert('ln(−1) → DOMAIN', TI.calc.error, 'DOMAIN');
+
+  // ═══════════════════════════════════════════════════
+  // Summary
+  // ═══════════════════════════════════════════════════
+
+  const summary = document.createElement('div');
+  summary.className = 'summary ' + (totalFail === 0 ? 'all-pass' : 'has-fail');
+  summary.textContent = `${totalPass + totalFail} tests: ${totalPass} passed, ${totalFail} failed`;
+  output.appendChild(summary);
+});
+</script>
+</body>
+</html>
